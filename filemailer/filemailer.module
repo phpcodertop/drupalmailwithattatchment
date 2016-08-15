@@ -1,0 +1,108 @@
+<?php 
+
+/**
+* Implements hook_menu().
+*/
+function filemailer_menu() {
+  $items['filemailer'] = array(
+    'title' => 'File Mailer Processing Page',
+    'page callback' => 'filemailer_mail_process',
+    'access arguments' => array('access file mailer'),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'drupal_json_output',
+  );
+ 
+  return $items;
+}
+
+/**
+ * Implements hook_permission()
+ */
+function filemailer_permission() {
+  return array(
+    'access file mailer' => array(
+      'title' => t('File Mailer'),
+      'description' => t('Access File Mailer API.'),
+    ),
+  );
+}
+
+
+function filemailer_mail_process()
+{
+	if(user_is_anonymous()) {
+		return false;
+	}
+
+	global $_POST;
+
+	if($_POST['email'] && $_POST['file_fid']){
+		global $user;
+		$my_module = 'filemailer';
+    	$my_mail_token = microtime();
+
+		$to = $_POST['email'];
+		$file_fid = $_POST['file_fid'];
+		$file = file_load($file_fid);
+		$filename = $file->filename;
+		$filemime = $file->filemime;
+		$file_uri = $file->uri;
+		$file_url = file_create_url($file_uri);
+		$subject = t('File Sent From ESP');
+		$message = t('Please find the attached file that sent to you from ESP by ');
+		$message .= $user->name;
+		$message .= t('Thanks, ESP team.');
+
+		$email_from = variable_get('site_mail');
+
+		$message = array(
+			'id' => $my_module . '_' . $my_mail_token,
+			'to' => $to,
+			'subject' => $subject,
+			'body' => array($message),
+			'headers' => array(
+				'From' => $email_from, 
+				'Sender' => $email_from, 
+				'Return-Path' => $email_from,
+				'Content-type' => 'text/html; charset=UTF-8',
+			),
+		); 
+
+		$attache = $message['params']['attachments'][]  = array(
+		    'filename' =>  $filename,
+		    'path' => $file_url,
+		    'filecontent' => file_get_contents($file_url),
+		    'mime' => $filemime,
+		    'Content-type' => 'application/octet-stream',
+		    'encoding' => 'base64',
+		    'disposition' => 'attachment',
+		    'list' => TRUE
+	    );		
+    	$system = drupal_mail_system($my_module, $my_mail_token);
+     	
+    	$message = $system->format($message);
+    	if ($system->mail($message)) {
+    		return TRUE; 
+    	}
+    	else {
+    		return flase;
+        }
+	}else{
+		return false;
+	}
+	 
+	// //build an array called $params to pass 
+	// //whatever you want to the email
+	// $params['var'] = $whatevs;
+	// $params['more'] = $secrets;
+	 
+	 
+	// $sent = drupal_mail('filemailer', 'my_key', $to, language_default(), $params, $email_from, TRUE);
+	 
+	// if(!$sent){
+	// //handle send fail, $sent ===false when mail fails, but it won't always recognize a failure
+	// }
+	
+}
+
+//drupal_mail($module, $key, $to, $language, $params = array(), $from = NULL, $send = TRUE)

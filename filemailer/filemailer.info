@@ -1,0 +1,4 @@
+
+name = File Mailer 
+description = Module that help you in sending files as attatchment with mail and processing the form.
+core = 7.x
