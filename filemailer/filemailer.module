@@ -1,5 +1,4 @@
 <?php 
-
 /**
 * Implements hook_menu().
 */
@@ -14,7 +13,6 @@ function filemailer_menu() {
  
   return $items;
 }
-
 /**
  * Implements hook_permission()
  */
@@ -26,21 +24,27 @@ function filemailer_permission() {
     ),
   );
 }
-
-
+function filemailer_mail($key, &$message, $params) {
+      if (isset($params['subject'])) {
+        $message['subject'] = $params['subject'];
+      }
+      if (isset($params['body'])) {
+        $message['body'][] = $params['body'];
+      }
+      if (isset($params['attachment'])) {
+        $message['params']['attachments'][] = $params['attachment'];
+      }
+}
 function filemailer_mail_process()
 {
 	if(user_is_anonymous()) {
 		return false;
 	}
-
 	global $_POST;
-
 	if($_POST['email'] && $_POST['file_fid']){
 		global $user;
 		$my_module = 'filemailer';
     	$my_mail_token = microtime();
-
 		$to = $_POST['email'];
 		$file_fid = $_POST['file_fid'];
 		$file = file_load($file_fid);
@@ -49,44 +53,34 @@ function filemailer_mail_process()
 		$file_uri = $file->uri;
 		$file_url = file_create_url($file_uri);
 		$subject = t('File Sent From ESP');
-		$message = t('Please find the attached file that sent to you from ESP by ');
-		$message .= $user->name;
-		$message .= t('Thanks, ESP team.');
-
+		$message = t('Please find attached file, sent to you from Pfizer Team  ');
+		$message .= t(' .Thanks, ESP team.');
 		$email_from = variable_get('site_mail');
-
-		$message = array(
-			'id' => $my_module . '_' . $my_mail_token,
-			'to' => $to,
-			'subject' => $subject,
-			'body' => array($message),
-			'headers' => array(
-				'From' => $email_from, 
-				'Sender' => $email_from, 
-				'Return-Path' => $email_from,
-				'Content-type' => 'text/html; charset=UTF-8',
-			),
-		); 
-
-		$attache = $message['params']['attachments'][]  = array(
-		    'filename' =>  $filename,
-		    'path' => $file_url,
-		    'filecontent' => file_get_contents($file_url),
-		    'mime' => $filemime,
-		    'Content-type' => 'application/octet-stream',
-		    'encoding' => 'base64',
-		    'disposition' => 'attachment',
-		    'list' => TRUE
-	    );		
-    	$system = drupal_mail_system($my_module, $my_mail_token);
-     	
-    	$message = $system->format($message);
-    	if ($system->mail($message)) {
-    		return TRUE; 
-    	}
-    	else {
-    		return flase;
-        }
+		//$attachments = 	file_get_contents($file_url);
+		
+		$subject = "File Sent To You From ESP Team"; //Email Subject
+		$headers = "From: $email_from\r\nReply-To: $email_from";
+        $htmlbody = "File Sent From ESP . Please find attached file, sent to you from Pfizer Team  .Thanks, ESP team.";
+		$random_hash = md5(date('r', time()));
+		$headers .= "\r\nContent-Type: multipart/mixed; boundary=\"PHP-mixed-".$random_hash."\"";
+		$attachment = chunk_split(base64_encode(file_get_contents($file_url))); // Set your file path here
+		//define the body of the message.
+		$message = "--PHP-mixed-$random_hash\r\n"."Content-Type: multipart/alternative; boundary=\"PHP-alt-$random_hash\"\r\n\r\n";
+		$message .= "--PHP-alt-$random_hash\r\n"."Content-Type: text/plain; charset=\"iso-8859-1\"\r\n"."Content-Transfer-Encoding: 7bit\r\n\r\n";
+		//Insert the html message.
+		$message .= $htmlbody;
+		$message .="\r\n\r\n--PHP-alt-$random_hash--\r\n\r\n";
+		//include attachment
+		$message .= "--PHP-mixed-$random_hash\r\n"."Content-Type: application/zip; name=\"$filename\"\r\n"."Content-Transfer-Encoding: base64\r\n"."Content-Disposition: attachment\r\n\r\n";
+		$message .= $attachment;
+		$message .= "/r/n--PHP-mixed-$random_hash--";
+		//send the email
+		$mail = mail( $to, $subject , $message, $headers );
+		if($mail){
+			return true;
+		}else{
+			return true;
+		}	
 	}else{
 		return false;
 	}
@@ -104,5 +98,3 @@ function filemailer_mail_process()
 	// }
 	
 }
-
-//drupal_mail($module, $key, $to, $language, $params = array(), $from = NULL, $send = TRUE)
