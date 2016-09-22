@@ -1,4 +1,4 @@
 
-name = File Mailer 
-description = Module that help you in sending files as attatchment with mail and processing the form.
+name = File Mailer By Ahmed Maher Halima
+description = Module that help you in sending files as attatchment with mail and processing the form , requires file id to be sent to it.
 core = 7.x
